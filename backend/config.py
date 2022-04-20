@@ -1,2 +1,2 @@
-DATA_DIR = "./data"
+DATA_DIR = "../data"
 PORT = 56789
