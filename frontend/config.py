@@ -1,7 +1,7 @@
 import os
 
 # data directory
-DATA_DIR = "../data/images"
+DATA_DIR = "../data"
 
 # client
 TOP_K = 10
@@ -10,4 +10,4 @@ DEBUG = True
 
 # serving via REST
 SERVER = os.getenv("SERVER", "0.0.0.0")
-PORT = 12345
+PORT = 56789

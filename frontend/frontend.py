@@ -14,19 +14,9 @@ from config import (
     DEBUG,
 )
 
-filters = {
-    "$and": {
-        # "price": {},
-        "rating": {},
-        "season": {},
-        "masterCategory": {},
-        # "gender": {},
-        # "baseColour": {},
-        # "year": {},
-    }
-}
+limit = 10
 
-title = "👕 Multimodal fashion search with Jina"
+title = "📝 PDF search with Jina"
 
 st.set_page_config(page_title=title, layout="wide")
 
@@ -36,45 +26,10 @@ st.sidebar.title("Options")
 input_media = st.sidebar.radio(label="Search with...", options=["text", "image"])
 
 
-filters["$and"]["masterCategory"]["$in"] = st.sidebar.multiselect(
-    "Category", facets.masterCategory, default=facets.masterCategory
-)
-
-# filters["$and"]["gender"]["$in"] = st.sidebar.multiselect(
-# "Gender", facets.gender, default=facets.gender
-# )
-filters["$and"]["season"]["$in"] = st.sidebar.multiselect(
-    "Season", facets.season, default=facets.season
-)
-# (
-    # filters["$and"]["price"]["$gte"],
-    # filters["$and"]["price"]["$lte"],
-# ) = st.sidebar.slider("Price", 0, 200, (0, 200))
-
-filters["$and"]["rating"]["$gte"] = st.sidebar.slider("Minimum rating", 0, 5, 0)
-limit = st.sidebar.slider(
-    label="Maximum results",
-    min_value=int(TOP_K / 3),
-    max_value=TOP_K * 3,
-    value=TOP_K,
-)
-# filters["$and"]["baseColour"]["$in"] = st.sidebar.multiselect(
-# "Color", facets.color, default=facets.color
-# )
-# (
-# filters["$and"]["year"]["$gte"],
-# filters["$and"]["year"]["$lte"],
-# ) = st.sidebar.slider("Year", 2007, 2019, (2007, 2019))
-
-
 if DEBUG:
     with st.sidebar.expander("Debug"):
         server = st.text_input(label="Server", value=SERVER)
         port = st.text_input(label="Port", value=PORT)
-        # text_server = st.text_input(label="Text server", value=SERVER)
-        # text_port = st.text_input(label="Text port", value=PORT)
-        # image_server = st.text_input(label="Image server", value=SERVER)
-        # image_port = st.text_input(label="Image port", value=PORT)
 else:
     server = SERVER
     port = PORT
@@ -82,12 +37,7 @@ else:
 st.sidebar.title("About")
 
 st.sidebar.markdown(
-    """This example lets you use a *textual* description to search through *images* of fashion items using [Jina](https://github.com/jina-ai/jina/).
-
-#### Why are the images so pixelated?
-
-To speed up indexing, we indexed relatively low-resolution graphics. We're looking at hosting hi-res images elsewhere and showing those instead. But for the purposes of a tech demo it seems like overkill.
-
+    """This example lets you search a library of PDFs using text or image. It's powered by the [Jina](https://github.com/jina-ai/jina/) neural search framework.
 """
 )
 
@@ -105,7 +55,6 @@ if input_media == "text":
         matches = get_matches(
             input=text_query,
             limit=limit,
-            filters=filters,
             server=server,
             port=port,
         )
@@ -118,22 +67,31 @@ elif input_media == "image":
         matches = get_matches_from_image(
             input=image_query,
             limit=limit,
-            filters=filters,
             server=server,
             port=port,
         )
 
 if "matches" in locals():
     for match in matches:
-        pic_cell, desc_cell, price_cell = st.columns([1, 6, 1])
+        icon_cell, info_cell = st.columns([1,5])
+        icon_cell.image("./icon.png")
+        icon_cell.markdown(f"**{match.tags['uri']}**")
+        if hasattr(match, "text"):
+            info_cell.markdown(match.text)
+        elif hasattr(match, "blob"):
+            info_cell.markdown("blob")
+        else:
+            info_cell.markdown("don't know if text or image")
+        st.markdown("---")
+        # pic_cell, desc_cell, price_cell = st.columns([1, 6, 1])
 
-        image = resize_image(match.uri, resize_factor=IMAGE_RESIZE_FACTOR)
+        # image = resize_image(match.uri, resize_factor=IMAGE_RESIZE_FACTOR)
 
-        pic_cell.image(image, use_column_width="auto")
-        desc_cell.markdown(
-            f"##### {match.tags['productDisplayName']} {print_stars(match.tags['rating'])}"
-        )
-        desc_cell.markdown(
-            f"*{match.tags['masterCategory']}*, *{match.tags['subCategory']}*, *{match.tags['articleType']}*, *{match.tags['baseColour']}*, *{match.tags['season']}*, *{match.tags['usage']}*, *{match.tags['year']}*"
-        )
-        price_cell.button(key=match.id, label=str(match.tags["price"]))
+        # pic_cell.image(image, use_column_width="auto")
+        # desc_cell.markdown(
+            # f"##### {match.tags['productDisplayName']} {print_stars(match.tags['rating'])}"
+        # )
+        # desc_cell.markdown(
+            # f"*{match.tags['masterCategory']}*, *{match.tags['subCategory']}*, *{match.tags['articleType']}*, *{match.tags['baseColour']}*, *{match.tags['season']}*, *{match.tags['usage']}*, *{match.tags['year']}*"
+        # )
+        # price_cell.button(key=match.id, label=str(match.tags["price"]))
