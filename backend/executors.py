@@ -36,7 +36,7 @@ class TextChunkMerger(Executor):
     """
     Sentencizes a Document's chunks, then adds /those/ sentences to the Document's chunks (not the chunk's chunks)
     """
-    @requests
+    @requests(on="/index")
     def sentencize_text_chunks(self, docs, **kwargs):
         for doc in docs: # level 0 document
             chunks_lvl_1 = DocumentArray() # level 0 is original Document
