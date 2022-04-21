@@ -1,4 +1,5 @@
 from jina import Executor, requests
+from docarray import DocumentArray
 import pikepdf
 import numpy
 
@@ -30,3 +31,20 @@ class PdfMetaDataAdder(Executor):
             doc_info = pdf.docinfo
             for key, value in doc_info.items():
                 print(key, ":", value)
+
+class TextChunkMerger(Executor):
+    """
+    Sentencizes a Document's chunks, then adds /those/ sentences to the Document's chunks (not the chunk's chunks)
+    """
+    @requests
+    def sentencize_text_chunks(self, docs, **kwargs):
+        for doc in docs: # level 0 document
+            chunks_lvl_1 = DocumentArray() # level 0 is original Document
+            for chunk in doc.chunks:
+                if chunk.mime_type == "text/plain":
+                    chunks_lvl_1.append(chunk)
+
+                    sentencizer = Executor.from_hub("jinahub://Sentencizer")
+                    sentencizer.segment(chunks_lvl_1, parameters={})
+                    for lvl_1_chunk in chunks_lvl_1:
+                        doc.chunks.extend(lvl_1_chunk.chunks) # Extend level 1 chunk DocumentArray with level 2 chunks

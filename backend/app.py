@@ -1,14 +1,17 @@
 import pretty_errors
 from docarray import DocumentArray, Document
-from executors import PdfPreprocessor, PdfMetaDataAdder
+from executors import PdfPreprocessor, PdfMetaDataAdder, TextChunkMerger
 from jina import Flow
 from config import PORT, DATA_DIR
 
 flow = (
-    Flow()
-    .add(uses="jinahub://PDFSegmenter", install_requirements=True, name="segmenter")
+    Flow(port=PORT, protocol="http")
     # .add(uses=PdfPreprocessor, name="processor")
     # .add(uses=PdfMetaDataAdder, name="metadata_adder")
+    .add(uses="jinahub://PDFSegmenter", install_requirements=True, name="segmenter")
+    .add(
+        uses=TextChunkMerger, name="chunk_sentencizer"
+    )  # Sentencizes text chunks and saves to doc.chunks
     .add(
         uses="jinahub://CLIPEncoder",
         install_requirements=True,
@@ -16,24 +19,26 @@ flow = (
         uses_with={"traversal_paths": "@c"},
     )
     .add(
-        uses="jinahub://SimpleIndexer",
+        uses="jinahub://SimpleIndexer/v0.15",
         install_requirements=True,
         name="indexer",
         uses_with={"traversal_right": "@c"},
     )
 )
 
+# docs = DocumentArray.from_files(f"../data/*.pdf", recursive=True)
 
-def index(data_dir=DATA_DIR):
+# with flow:
+# indexed_docs = flow.index(docs, show_progress=True)
 
-    docs = DocumentArray.from_files(f"{data_dir}/*.pdf", recursive=True)
-    docs.summary()  # shows 1 doc
+
+def index(directory=DATA_DIR):
+    docs = DocumentArray.from_files(f"{directory}/*.pdf", recursive=True)
 
     with flow:
-        docs = flow.index(docs)
+        indexed_docs = flow.index(docs, show_progress=True)
 
-    for chunk in docs[0].chunks:
-        print(chunk)
+    return indexed_docs
 
 
 def search_grpc(string):
@@ -44,13 +49,12 @@ def search_grpc(string):
             uses="jinahub://CLIPEncoder",
             install_requirements=True,
             name="encoder",
-            uses_with={"traversal_paths": "@c"},
         )
         .add(
-            uses="jinahub://SimpleIndexer",
+            uses="jinahub://SimpleIndexer/latest",
             install_requirements=True,
             name="indexer",
-            uses_with={"traversal_right:" "@c"},
+            uses_with={"traversal_right": "@c"},
         )
     )
 
@@ -58,26 +62,12 @@ def search_grpc(string):
         output = flow.search(search_doc)
 
     for match in output[0].matches:
-        print(match)
         print(match.content)
-        print(match.tags["uri"])
-
-    return output[0].matches
-
-
-def search():
-    flow = (
-        Flow(protocol="http", port=PORT)
-        .add(uses="jinahub://CLIPEncoder", install_requirements=True, name="encoder")
-        .add(uses="jinahub://SimpleIndexer", install_requirements=True, name="indexer")
-    )
-
-    with flow:
-        flow.block()
+        print("================")
 
 
 print("=== INDEXING ===")
 index()
 
 print("=== SEARCHING ===")
-search_grpc("community")
+search_grpc("what license should i use?")
