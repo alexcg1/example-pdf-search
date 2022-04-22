@@ -75,7 +75,9 @@ if "matches" in locals():
     for match in matches:
         icon_cell, info_cell = st.columns([1,5])
         icon_cell.image("./icon.png")
-        icon_cell.markdown(f"**{match.tags['uri']}**")
+        # icon_cell.markdown(f"**{match.tags['uri']}**")
+        st.json(match.tags)
+        print(match.parent_id)
         if hasattr(match, "text"):
             info_cell.markdown(match.text)
         elif hasattr(match, "blob"):
