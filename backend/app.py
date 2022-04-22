@@ -4,36 +4,39 @@ from executors import PdfPreprocessor, TextChunkMerger
 from jina import Flow
 from config import PORT, DATA_DIR, NUM_DOCS
 
-flow = (
-    Flow(port=PORT, protocol="http")
-    .add(uses=PdfPreprocessor, name="processor")
-    .add(uses="jinahub://PDFSegmenter", install_requirements=True, name="segmenter")
-    .add(
-        uses=TextChunkMerger, name="chunk_sentencizer"
-    )  # Sentencizes text chunks and saves to doc.chunks
-    .add(
-        uses="jinahub://CLIPEncoder",
-        install_requirements=True,
-        name="encoder",
-        uses_with={"traversal_paths": "@c"},
-    )
-    .add(
-        uses="jinahub://SimpleIndexer/v0.15",
-        install_requirements=True,
-        name="indexer",
-        uses_with={"traversal_right": "@c"},
-    )
-)
 
 
 def index(directory=DATA_DIR, num_docs=NUM_DOCS):
     docs = DocumentArray.from_files(f"{directory}/*.pdf", recursive=True, size=num_docs)
 
+    flow = (
+        Flow(port=PORT, protocol="http")
+        .add(uses=PdfPreprocessor, name="processor")
+        .add(uses="jinahub://PDFSegmenter", install_requirements=True, name="segmenter")
+        .add(
+            uses=TextChunkMerger, name="chunk_sentencizer"
+        )  # Sentencizes text chunks and saves to doc.chunks
+        .add(
+            uses="jinahub://CLIPEncoder",
+            install_requirements=True,
+            name="encoder",
+            uses_with={"traversal_paths": "@c"},
+        )
+        .add(
+            uses="jinahub://SimpleIndexer/v0.15",
+            install_requirements=True,
+            name="indexer",
+            uses_with={"traversal_right": "@c"},
+        )
+    )
+
     with flow:
         indexed_docs = flow.index(docs, show_progress=True)
 
-    for doc in indexed_docs:
-        print(doc.tags)
+    # for doc in indexed_docs:
+        # print(doc.tags)
+        # for chunk in doc.chunks:
+            # print(chunk.tags)
 
     return indexed_docs
 
@@ -58,10 +61,16 @@ def search_grpc(string):
     with flow:
         output = flow.search(search_doc)
 
-    for match in output[0].matches:
-        print(match.content)
-        print("================")
+    matches = output[0].matches
+    # for match in output[0].matches:
+    # for match in matches:
+        # print(match.content)
+        # print("================")
 
+    for doc in matches:
+        print(doc.tags)
+        # for chunk in doc.chunks:
+            # print(chunk.tags)
 
 def search():
     flow = (

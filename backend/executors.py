@@ -44,12 +44,12 @@ class PdfPreprocessor(Executor):
             os.makedirs(covers_dir)
 
         for doc in docs:
-            if "metadata" not in doc.tags.keys():
-                doc.tags["metadata"] = {}
+            # if "metadata" not in doc.tags.keys():
+                # doc.tags["metadata"] = {}
             bare_filename = doc.uri.split("/")[-1]
             thumbnail_filename = f"{covers_dir}/{bare_filename}.png"
             subprocess.call(["convert", doc.uri + "[0]", thumbnail_filename])
-            doc.tags["metadata"]["cover"] = thumbnail_filename
+            doc.tags["cover"] = thumbnail_filename
 
 
 class TextChunkMerger(Executor):
@@ -60,17 +60,31 @@ class TextChunkMerger(Executor):
     @requests(on="/index")
     def sentencize_text_chunks(self, docs, **kwargs):
         for doc in docs:  # level 0 document
-            chunks_lvl_1 = DocumentArray()  # level 0 is original Document
+            text_chunks = DocumentArray()  # level 0 is original Document
             for chunk in doc.chunks:
+                # Set metadata on chunk level
+                chunk.tags["parent"] = {"uri": doc.uri}
+                chunk.tags["parent"] = chunk.tags["parent"] | doc.tags
+
+                # Create a list of only text chunks
                 if chunk.mime_type == "text/plain":
-                    chunk.tags["parent"] = {}
-                    chunk.tags["parent"]["uri"] = doc.uri
-                    chunks_lvl_1.append(chunk)
+                    text_chunks.append(chunk)
 
             # Break chunks into sentences
             sentencizer = Executor.from_hub("jinahub://Sentencizer")
-            sentencizer.segment(chunks_lvl_1, parameters={})
+            sentencizer.segment(text_chunks, parameters={})
 
             # Extend level 1 chunk DocumentArray with the sentences
-            for lvl_1_chunk in chunks_lvl_1:
-                doc.chunks.extend(lvl_1_chunk.chunks)
+            for text_chunk in text_chunks:
+                # print(f"{lvl_1_chunk.parent_id=}")
+                # lvl_1_chunk.tags = doc.chunks[lvl_1_chunk.parent_id].tags | lvl_1_chunk.tags
+                doc.chunks.extend(text_chunk.chunks)
+
+            # Try to suck in metadata from the chunk's parent chunk (which should now be on same chunk-level)
+            for chunk in doc.chunks:
+                # Try to get metadata from higher-level chunks
+                try:
+                    parent = doc.chunks[chunk.parent_id]
+                    chunk.tags = chunk.tags | parent.tags
+                except:
+                    pass
