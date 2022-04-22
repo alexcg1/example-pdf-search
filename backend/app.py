@@ -1,6 +1,6 @@
 import click
 from docarray import DocumentArray, Document
-from executors import PdfPreprocessor, TextChunkMerger
+from executors import PdfPreprocessor, TextChunkMerger, DebugChunkPrinter
 from jina import Flow
 from config import PORT, DATA_DIR, NUM_DOCS
 
@@ -13,9 +13,11 @@ def index(directory=DATA_DIR, num_docs=NUM_DOCS):
         Flow(port=PORT, protocol="http")
         .add(uses=PdfPreprocessor, name="processor")
         .add(uses="jinahub://PDFSegmenter", install_requirements=True, name="segmenter")
+        # .add(uses=DebugChunkPrinter, name="segmenter_chunks")
         .add(
             uses=TextChunkMerger, name="chunk_sentencizer"
         )  # Sentencizes text chunks and saves to doc.chunks
+        .add(uses=DebugChunkPrinter, name="sentence_chunks")
         .add(
             uses="jinahub://CLIPEncoder",
             install_requirements=True,

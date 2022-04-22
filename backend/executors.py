@@ -45,7 +45,7 @@ class PdfPreprocessor(Executor):
 
         for doc in docs:
             # if "metadata" not in doc.tags.keys():
-                # doc.tags["metadata"] = {}
+            # doc.tags["metadata"] = {}
             bare_filename = doc.uri.split("/")[-1]
             thumbnail_filename = f"{covers_dir}/{bare_filename}.png"
             subprocess.call(["convert", doc.uri + "[0]", thumbnail_filename])
@@ -71,13 +71,17 @@ class TextChunkMerger(Executor):
                     text_chunks.append(chunk)
 
             # Break chunks into sentences
-            sentencizer = Executor.from_hub("jinahub://Sentencizer")
-            sentencizer.segment(text_chunks, parameters={})
+            sentencizer = Executor.from_hub(
+                "jinahub://Sentencizer",
+                uses_with={"punct_chars": ["\n\n", "\r\r"], "min_sent_len": 20},
+            )
+            sentencizer.segment(
+                text_chunks,
+                parameters={}
+            )
 
             # Extend level 1 chunk DocumentArray with the sentences
             for text_chunk in text_chunks:
-                # print(f"{lvl_1_chunk.parent_id=}")
-                # lvl_1_chunk.tags = doc.chunks[lvl_1_chunk.parent_id].tags | lvl_1_chunk.tags
                 doc.chunks.extend(text_chunk.chunks)
 
             # Try to suck in metadata from the chunk's parent chunk (which should now be on same chunk-level)
@@ -88,3 +92,13 @@ class TextChunkMerger(Executor):
                     chunk.tags = chunk.tags | parent.tags
                 except:
                     pass
+
+
+class DebugChunkPrinter(Executor):
+    @requests
+    def print_chunks(self, docs, **kwargs):
+        for doc in docs:
+            print(f"{doc.uri} has {len(doc.chunks)} chunks")
+            for chunk in doc.chunks:
+                print(f"{len(chunk.text)}: {chunk.text}")
+                print(10 * "=")
