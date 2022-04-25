@@ -73,12 +73,12 @@ class TextChunkMerger(Executor):
             # Break chunks into sentences
             sentencizer = Executor.from_hub(
                 "jinahub://Sentencizer",
-                uses_with={"punct_chars": ["\n\n", "\r\r"], "min_sent_len": 20},
+                uses_with={
+                    "punct_chars": ["\n\n", "\r\r", "."], 
+                    "min_sent_len": 20
+                },
             )
-            sentencizer.segment(
-                text_chunks,
-                parameters={}
-            )
+            sentencizer.segment(text_chunks, parameters={})
 
             # Extend level 1 chunk DocumentArray with the sentences
             for text_chunk in text_chunks:
@@ -102,3 +102,25 @@ class DebugChunkPrinter(Executor):
             for chunk in doc.chunks:
                 print(f"{len(chunk.text)}: {chunk.text}")
                 print(10 * "=")
+
+
+class TextCleaner(Executor):
+    @requests(on="/index")
+    def clean_text(self, docs, **kwargs):
+        """
+        Substitute letters because of weirdness in PDF to text conversion
+        """
+        substitutions = [
+            # pre-emptively convert deliberate paragraph breaks into sentence-ends so they dont get caught by next entry in the list
+            {"old": "\n\n", "new": ". "},
+            {"old": "\r\r", "new": ". "},
+
+            # Remove incidental linebreaks caused by conversion
+            {"old": "\n", "new": " "},
+            {"old": "\r", "new": " "},
+        ]
+        for doc in docs:
+            for chunk in doc.chunks:
+                if chunk.text:
+                    for sub in substitutions:
+                        chunk.text = chunk.text.replace(sub["old"], sub["new"])
