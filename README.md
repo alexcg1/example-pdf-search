@@ -27,6 +27,8 @@ This search engine will index a folder of PDF files, break them down into chunks
 
 `docker-compose up`
 
-## Understand
+## Test
+
+If you're planning to use "Print to PDF" from your web browser for testing, I recommend using Chrome over Firefox. Firefox converts characters strangely (for example `fi` becomes `ﬁ`) which *could* affect search results depending on what the encoder recognizes as a meaningful unit.
 
 
