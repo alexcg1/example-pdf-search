@@ -2,9 +2,7 @@ import streamlit as st
 from helper import (
     get_matches,
     resize_image,
-    print_stars,
     get_matches_from_image,
-    facets,
 )
 from config import (
     TOP_K,
@@ -74,10 +72,14 @@ elif input_media == "image":
 if "matches" in locals():
     for match in matches:
         icon_cell, info_cell = st.columns([1,5])
-        icon_cell.image("./icon.png")
-        # icon_cell.markdown(f"**{match.tags['uri']}**")
-        st.json(match.tags)
-        print(match.parent_id)
+        try:
+            cover_uri = match.tags["parent"]["cover"]
+        except:
+            cover_uri = "./icon.png"
+
+        icon_cell.image(match.tags["parent"]["cover"])
+        with open(match.tags["parent"]["uri"], "rb") as file:
+            st.download_button("Download", file, key=match.id)
         if hasattr(match, "text"):
             info_cell.markdown(match.text)
         elif hasattr(match, "blob"):
