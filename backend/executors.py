@@ -61,6 +61,11 @@ def transform_date(date_str):
 
         return datetime.datetime(**date_info)
 
+def uri_to_title(uri):
+    title = uri.split(".")[-2].split("/")[-1]
+
+    return title
+
 
 class PdfPreprocessor(Executor):
     """
@@ -80,29 +85,27 @@ class PdfPreprocessor(Executor):
             if doc.uri:
                 doc.load_uri_to_blob()
 
+            # Extract PDF metadata to doc.tags
             if "metadata" not in doc.tags.keys():
                 doc.tags["metadata"] = {}
 
-            # Print existing metadata - store it soon
-            # https://www.thepythoncode.com/article/extract-pdf-metadata-in-python
             pdf = pikepdf.Pdf.open(doc.uri)
             doc_info = dict(pdf.docinfo)
-            # fixed_doc_info = {}
             for key, value in doc_info.items():
-                print(key, ":", value)
                 new_key_name = str(key).lower()[1:]
-                print(new_key_name)
                 doc.tags["metadata"][new_key_name] = str(value)
 
-
-            datetime_keys = ["moddate", "creationdate"]
-
             # Convert weird PDF date to real date time
+            datetime_keys = ["moddate", "creationdate"]
             for key, value in doc.tags["metadata"].items():
                 if key in datetime_keys:
                     doc.tags["metadata"][key] = str(transform_date(value))
 
-            print(doc.tags)
+            if "title" not in doc.tags["metadata"].keys():
+                # Convert doc.uri to readable title
+                doc.tags["metadata"]["title"] = (
+                    uri_to_title(doc.uri)
+                )
 
             # Create cover image
             bare_filename = doc.uri.split("/")[-1]
@@ -148,7 +151,8 @@ class ChunkMerger(Executor):
     @requests(on="/index")
     def merge_chunks(self, docs, **kwargs):
         for doc in docs:  # level 0 document
-            doc.chunks.extend(doc.chunks["@c, cc, ccc"])
+            doc.chunks = doc.chunks[...]
+            # doc.chunks.extend(doc.chunks["@c, cc, ccc"])
 
 
 class DebugChunkPrinter(Executor):
