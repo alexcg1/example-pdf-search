@@ -1,6 +1,6 @@
 import click
 from docarray import DocumentArray, Document
-from executors import PdfPreprocessor, TextChunkMerger, DebugChunkPrinter, TextCleaner
+from executors import PdfPreprocessor, ChunkSentencizer, DebugChunkPrinter, RecurseTags, ChunkMerger
 from jina import Flow
 from config import PORT, DATA_DIR, NUM_DOCS
 
@@ -11,15 +11,14 @@ def index(directory=DATA_DIR, num_docs=NUM_DOCS):
 
     flow = (
         Flow(port=PORT, protocol="http")
-        # .add(uses=PdfPreprocessor, name="processor")
+        .add(uses=PdfPreprocessor, name="processor")
         .add(uses="jinahub://PDFSegmenter", install_requirements=True, name="segmenter")
-        # .add(uses=DebugChunkPrinter, name="segmenter_chunks")
-        .add(uses=TextCleaner, name="cleaner")
-        # .add(uses=DebugChunkPrinter, name="cleaned_chunks")
+        # .add(uses=TextCleaner, name="cleaner")
         .add(
-            uses=TextChunkMerger, name="chunk_sentencizer"
+            uses=ChunkSentencizer, name="chunk_sentencizer"
         )  # Sentencizes text chunks and saves to doc.chunks
-        .add(uses=DebugChunkPrinter, name="sentence_chunks")
+        .add(uses=RecurseTags) # add doc.tags to chunk.tags
+        .add(uses=ChunkMerger) # copy doc.chunks.chunks to doc.chunks
         .add(
             uses="jinahub://CLIPEncoder",
             install_requirements=True,
@@ -45,8 +44,7 @@ def index(directory=DATA_DIR, num_docs=NUM_DOCS):
     return indexed_docs
 
 
-def search_grpc(string):
-    search_doc = Document(text=string)
+def search_grpc():
     flow = (
         Flow()
         .add(
@@ -61,20 +59,20 @@ def search_grpc(string):
             uses_with={"traversal_right": "@c"},
         )
     )
+    while True:
+        string = input("What do you want to search for? > ")
+        search_doc = Document(text=string)
 
-    with flow:
-        output = flow.search(search_doc)
+        with flow:
+            output = flow.search(search_doc)
 
-    matches = output[0].matches
-    # for match in output[0].matches:
-    # for match in matches:
-        # print(match.content)
-        # print("================")
+        print(output)
+        matches = output[0].matches
 
-    for doc in matches:
-        print(doc.tags)
-        # for chunk in doc.chunks:
-            # print(chunk.tags)
+        for doc in matches:
+            print(doc.text)
+            print(doc.tags)
+            print("-" * 10)
 
 def search():
     flow = (
@@ -108,7 +106,7 @@ def main(task: str, num_docs):
     elif task == "search":
         search()
     elif task == "search_grpc":
-        search_grpc("choo choo train")
+        search_grpc()
     else:
         print("Please add '-t index' or '-t search' to your command")
 

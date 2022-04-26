@@ -1,126 +1,169 @@
 from config import METADATA_DIR
 from jina import Executor, requests
-from docarray import DocumentArray
 import pikepdf
-import numpy
 import subprocess
 import os
+import re
+from dateutil.tz import tzutc, tzoffset
+import datetime
+
+pdf_date_pattern = re.compile(
+    "".join(
+        [
+            r"(D:)?",
+            r"(?P<year>\d\d\d\d)",
+            r"(?P<month>\d\d)",
+            r"(?P<day>\d\d)",
+            r"(?P<hour>\d\d)",
+            r"(?P<minute>\d\d)",
+            r"(?P<second>\d\d)",
+            r"(?P<tz_offset>[+-zZ])?",
+            r"(?P<tz_hour>\d\d)?",
+            r"'?(?P<tz_minute>\d\d)?'?",
+        ]
+    )
+)
 
 
-def preproc(doc):
-    for chunk in doc.chunks:
-        if isinstance(chunk.content, numpy.ndarray):
-            chunk.set_image_tensor_shape((224, 224))
-            chunk.tensor = chunk.tensor.astype(numpy.uint8)
-            chunk.set_image_tensor_normalization()
-            chunk.convert_image_tensor_to_blob()
-            chunk.tags["parent"] = {}
-            chunk.tags["parent"]["uri"] = doc.uri
+def transform_date(date_str):
+    """
+    Convert a pdf date such as "D:20120321183444+07'00'" into a usable datetime
+    http://www.verypdf.com/pdfinfoeditor/pdf-date-format.htm
+    (D:YYYYMMDDHHmmSSOHH'mm')
+    :param date_str: pdf date string
+    :return: datetime object
+    """
+    global pdf_date_pattern
+    match = re.match(pdf_date_pattern, date_str)
+    if match:
+        date_info = match.groupdict()
+
+        for k, v in date_info.items():  # transform values
+            if v is None:
+                pass
+            elif k == "tz_offset":
+                date_info[k] = v.lower()  # so we can treat Z as z
+            else:
+                date_info[k] = int(v)
+
+        if date_info["tz_offset"] in ("z", None):  # UTC
+            date_info["tzinfo"] = tzutc()
+        else:
+            multiplier = 1 if date_info["tz_offset"] == "+" else -1
+            date_info["tzinfo"] = tzoffset(
+                None,
+                multiplier
+                * (3600 * date_info["tz_hour"] + 60 * date_info["tz_minute"]),
+            )
+
+        for k in ("tz_offset", "tz_hour", "tz_minute"):  # no longer needed
+            del date_info[k]
+
+        return datetime.datetime(**date_info)
 
 
 class PdfPreprocessor(Executor):
-    @requests(on="/index")
-    def uri_to_blob(self, docs, **kwargs):
-        for doc in docs:
-            preproc(doc)
-            if doc.uri:
-                doc.load_uri_to_blob()
+    """
+    - Generates cover and stores uri in tag
+    - Converts PDF to blob
+    - Gets PDF metadata, stores as Document metadata (todo)
+    """
 
     @requests(on="/index")
-    def metadata_to_tags(self, docs, **kwargs):
-        for doc in docs:
-            if "metadata" not in doc.tags.keys():
-                doc.tags["metadata"] = {}
-
-            pdf = pikepdf.Pdf.open(doc.uri)
-            doc_info = pdf.docinfo
-            for key, value in doc_info.items():
-                print(key, ":", value)
-
-    @requests(on="/index")
-    def get_thumbnail(self, docs, **kwargs):
+    def preprocess_pdf(self, docs, **kwargs):
         covers_dir = f"{METADATA_DIR}/covers"
         if not os.path.isdir(covers_dir):
             os.makedirs(covers_dir)
 
         for doc in docs:
-            # if "metadata" not in doc.tags.keys():
-            # doc.tags["metadata"] = {}
+            # Load to blob
+            if doc.uri:
+                doc.load_uri_to_blob()
+
+            if "metadata" not in doc.tags.keys():
+                doc.tags["metadata"] = {}
+
+            # Print existing metadata - store it soon
+            # https://www.thepythoncode.com/article/extract-pdf-metadata-in-python
+            pdf = pikepdf.Pdf.open(doc.uri)
+            doc_info = dict(pdf.docinfo)
+            # fixed_doc_info = {}
+            for key, value in doc_info.items():
+                print(key, ":", value)
+                new_key_name = str(key).lower()[1:]
+                print(new_key_name)
+                doc.tags["metadata"][new_key_name] = str(value)
+
+
+            datetime_keys = ["moddate", "creationdate"]
+
+            # Convert weird PDF date to real date time
+            for key, value in doc.tags["metadata"].items():
+                if key in datetime_keys:
+                    doc.tags["metadata"][key] = str(transform_date(value))
+
+            print(doc.tags)
+
+            # Create cover image
             bare_filename = doc.uri.split("/")[-1]
             thumbnail_filename = f"{covers_dir}/{bare_filename}.png"
             subprocess.call(["convert", doc.uri + "[0]", thumbnail_filename])
             doc.tags["cover"] = thumbnail_filename
 
 
-class TextChunkMerger(Executor):
+class RecurseTags(Executor):
     """
-    Sentencizes a Document's chunks, then adds /those/ sentences to that Document's chunks (not the chunk's chunks)
+    Bubble Document tags to doc.chunk["parent"] dict
+    """
+
+    @requests(on="/index")
+    def copy_doc_tags_to_chunk_tags(self, docs, **kwargs):
+        for doc in docs:
+            for chunk in doc.chunks["@c, cc, ccc"]:
+                if not "parent" in chunk.tags:
+                    chunk.tags["parent"] = doc.tags
+                    chunk.tags["parent"]["uri"] = doc.uri
+
+
+class ChunkSentencizer(Executor):
+    """
+    Cleans up and sentencizes a Document's chunks
     """
 
     @requests(on="/index")
     def sentencize_text_chunks(self, docs, **kwargs):
-        for doc in docs:  # level 0 document
-            text_chunks = DocumentArray()  # level 0 is original Document
-            for chunk in doc.chunks:
-                # Set metadata on chunk level
-                chunk.tags["parent"] = {"uri": doc.uri}
-                chunk.tags["parent"] = chunk.tags["parent"] | doc.tags
-
-                # Create a list of only text chunks
-                if chunk.mime_type == "text/plain":
-                    text_chunks.append(chunk)
-
-            # Break chunks into sentences
+        for doc in docs:
             sentencizer = Executor.from_hub(
-                "jinahub://Sentencizer",
-                uses_with={
-                    "punct_chars": ["\n\n", "\r\r", "."], 
-                    "min_sent_len": 20
-                },
+                "jinahub://SpacySentencizer/v0.4",
+                install_requirements=True,
             )
-            sentencizer.segment(text_chunks, parameters={})
+            sentencizer.segment(doc.chunks, parameters={})
 
-            # Extend level 1 chunk DocumentArray with the sentences
-            for text_chunk in text_chunks:
-                doc.chunks.extend(text_chunk.chunks)
 
-            # Try to suck in metadata from the chunk's parent chunk (which should now be on same chunk-level)
-            for chunk in doc.chunks:
-                # Try to get metadata from higher-level chunks
-                try:
-                    parent = doc.chunks[chunk.parent_id]
-                    chunk.tags = chunk.tags | parent.tags
-                except:
-                    pass
+class ChunkMerger(Executor):
+    """
+    Merges all doc.chunks.chunks to doc.chunks
+    """
+
+    @requests(on="/index")
+    def merge_chunks(self, docs, **kwargs):
+        for doc in docs:  # level 0 document
+            doc.chunks.extend(doc.chunks["@c, cc, ccc"])
 
 
 class DebugChunkPrinter(Executor):
+    """
+    Print debug statements
+    """
+
     @requests
     def print_chunks(self, docs, **kwargs):
-        for doc in docs:
-            print(f"{doc.uri} has {len(doc.chunks)} chunks")
-            for chunk in doc.chunks:
-                print(f"{len(chunk.text)}: {chunk.text}")
-                print(10 * "=")
-
-
-class TextCleaner(Executor):
-    @requests(on="/index")
-    def clean_text(self, docs, **kwargs):
-        """
-        Substitute letters because of weirdness in PDF to text conversion
-        """
-        substitutions = [
-            # pre-emptively convert deliberate paragraph breaks into sentence-ends so they dont get caught by next entry in the list
-            {"old": "\n\n", "new": ". "},
-            {"old": "\r\r", "new": ". "},
-
-            # Remove incidental linebreaks caused by conversion
-            {"old": "\n", "new": " "},
-            {"old": "\r", "new": " "},
-        ]
-        for doc in docs:
-            for chunk in doc.chunks:
-                if chunk.text:
-                    for sub in substitutions:
-                        chunk.text = chunk.text.replace(sub["old"], sub["new"])
+        levels = ["@c"]
+        for level in levels:
+            print(f"Chunks for {level}")
+            print("=" * 10)
+            for doc in docs[level]:
+                print(level)
+                print(doc.text)
+                print(f"Tags: {doc.tags}")
+                print("-" * 10)
