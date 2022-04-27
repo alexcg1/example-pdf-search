@@ -69,9 +69,10 @@ def uri_to_title(uri):
 
 class PdfPreprocessor(Executor):
     """
-    - Generates cover and stores uri in tag
+    - Generates cover and stores its uri in tag
     - Converts PDF to blob
-    - Gets PDF metadata, stores as Document metadata (todo)
+    - Gets PDF metadata, stores as Document tags
+    - Generates title from uri if it doesn't exist
     """
 
     @requests(on="/index")
@@ -85,25 +86,21 @@ class PdfPreprocessor(Executor):
             if doc.uri:
                 doc.load_uri_to_blob()
 
-            # Extract PDF metadata to doc.tags
-            if "metadata" not in doc.tags.keys():
-                doc.tags["metadata"] = {}
-
             pdf = pikepdf.Pdf.open(doc.uri)
             doc_info = dict(pdf.docinfo)
             for key, value in doc_info.items():
                 new_key_name = str(key).lower()[1:]
-                doc.tags["metadata"][new_key_name] = str(value)
+                doc.tags[new_key_name] = str(value)
 
             # Convert weird PDF date to real date time
             datetime_keys = ["moddate", "creationdate"]
-            for key, value in doc.tags["metadata"].items():
+            for key, value in doc.tags.items():
                 if key in datetime_keys:
-                    doc.tags["metadata"][key] = str(transform_date(value))
+                    doc.tags[key] = str(transform_date(value))
 
-            if "title" not in doc.tags["metadata"].keys():
+            if "title" not in doc.tags.keys():
                 # Convert doc.uri to readable title
-                doc.tags["metadata"]["title"] = (
+                doc.tags["title"] = (
                     uri_to_title(doc.uri)
                 )
 
