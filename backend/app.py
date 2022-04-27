@@ -131,7 +131,7 @@ def search_grpc():
         matches = output[0].matches
 
         for doc in matches:
-            print(doc.text)
+            print(doc.content)
             print(doc.tags)
             print("-" * 10)
 
