@@ -6,6 +6,8 @@ from executors import (
     DebugChunkPrinter,
     RecurseTags,
     ChunkMerger,
+    ImageNormalizer,
+    EmptyDeleter
 )
 from jina import Flow
 import yaml
@@ -68,13 +70,18 @@ def index(directory=config["data_dir"], num_docs=config["num_docs"]):
         .add(uses=PdfPreprocessor, name="processor")
         .add(uses="jinahub://PDFSegmenter", install_requirements=True, name="segmenter")
         .add(uses=ChunkSentencizer, name="chunk_sentencizer")
-        .add(uses=RecurseTags)  # add doc.tags to chunk.tags
-        .add(uses=ChunkMerger)  # flatten chunks
+        .add(uses=RecurseTags, name="recurse_tags")  # add doc.tags to chunk.tags
+        .add(uses=ChunkMerger, name="chunk_merger")  # flatten chunks
+        .add(uses=ImageNormalizer, name="image_normalizer")
         .add(
             uses="jinahub://CLIPEncoder",
             install_requirements=True,
             name="encoder",
             uses_with={"traversal_paths": "@c"},
+        )
+        .add(
+            uses=EmptyDeleter,
+            name="empty_deleter"
         )
         .add(
             uses="jinahub://SimpleIndexer/v0.15",
@@ -86,6 +93,9 @@ def index(directory=config["data_dir"], num_docs=config["num_docs"]):
 
     with flow:
         indexed_docs = flow.index(docs, show_progress=True)
+
+    # indexed_docs.summary()
+    indexed_docs[0].chunks.summary()
 
     return indexed_docs
 

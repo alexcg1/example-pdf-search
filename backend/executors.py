@@ -6,6 +6,7 @@ import os
 import re
 from dateutil.tz import tzutc, tzoffset
 import datetime
+import numpy as np
 
 pdf_date_pattern = re.compile(
     "".join(
@@ -61,6 +62,7 @@ def transform_date(date_str):
 
         return datetime.datetime(**date_info)
 
+
 def uri_to_title(uri):
     title = uri.split(".")[-2].split("/")[-1]
 
@@ -100,9 +102,7 @@ class PdfPreprocessor(Executor):
 
             if "title" not in doc.tags.keys():
                 # Convert doc.uri to readable title
-                doc.tags["title"] = (
-                    uri_to_title(doc.uri)
-                )
+                doc.tags["title"] = uri_to_title(doc.uri)
 
             # Create cover image
             bare_filename = doc.uri.split("/")[-1]
@@ -152,6 +152,31 @@ class ChunkMerger(Executor):
             # doc.chunks.extend(doc.chunks["@c, cc, ccc"])
 
 
+class ImageNormalizer(Executor):
+    @requests(on="/index")
+    def normalize_chunks(self, docs, **kwargs):
+        for doc in docs:
+            for chunk in doc.chunks[...]:
+                if chunk.blob:
+                    chunk.convert_blob_to_image_tensor()
+
+                if hasattr(chunk, "tensor"):
+                    print("Tensor found")
+                    if chunk.tensor is not None:
+                        # chunk.tags["original_tensor"] = chunk.tensor
+                        chunk.tensor = chunk.tensor.astype(np.uint8)
+                        chunk.set_image_tensor_shape((64, 64))
+                        chunk.set_image_tensor_normalization()
+
+    # @requests(on="/search")
+    # def normalize_doc(self, docs, **kwargs):
+    # for doc in docs:
+    # if doc.blob:
+    # doc.convert_blob_to_image_tensor().set_image_tensor_shape(
+    # 64, 64
+    # ).set_image_tensor_normalization()
+
+
 class DebugChunkPrinter(Executor):
     """
     Print debug statements
@@ -159,12 +184,38 @@ class DebugChunkPrinter(Executor):
 
     @requests
     def print_chunks(self, docs, **kwargs):
+        print(docs)
+        print([doc for doc in docs])
         levels = ["@c"]
         for level in levels:
-            print(f"Chunks for {level}")
+            print(f"Chunks at {level}")
             print("=" * 10)
+            # print(level)
             for doc in docs[level]:
-                print(level)
-                print(doc.text)
-                print(f"Tags: {doc.tags}")
+                print(doc)
+                # print(f"Type: {type(doc.content)}")
+                # print(f"Mimetype: {doc.mime_type}")
+                try:
+                    print(doc.tensor.shape)
+                except:
+                    pass
+                # if doc.tensor:
+                # print(doc.tensor.shape)
+                # if doc.embedding:
+                # print(f"Embedding shape: {doc.embedding.shape}")
+                # else:
+                # print("Embedding: None")
+                # print(f"Tags: {doc.tags}")
+                # # print(doc.content)
                 print("-" * 10)
+
+class EmptyDeleter(Executor):
+    """
+    Delete docs with empty embeddings
+    """
+    @requests
+    def delete_empty(self, docs, **kwargs):
+        for doc in docs:
+            for chunk in doc.chunks:
+                if chunk.embedding is None:
+                    doc.chunks.pop(chunk.id)
