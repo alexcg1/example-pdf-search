@@ -1,18 +1,17 @@
+import yaml
 import streamlit as st
 from helper import (
     get_matches,
     resize_image,
     get_matches_from_image,
 )
-from config import (
-    TOP_K,
-    IMAGE_RESIZE_FACTOR,
-    SERVER,
-    PORT,
-    DEBUG,
-)
 
-limit = 10
+CONFIG_FILE = "../config.yml"
+
+with open(CONFIG_FILE) as file:
+    config = yaml.safe_load(file.read())
+
+limit = config["return_docs"]
 
 title = "📝 PDF search with Jina"
 
@@ -24,13 +23,13 @@ st.sidebar.title("Options")
 input_media = st.sidebar.radio(label="Search with...", options=["text", "image"])
 
 
-if DEBUG:
+if config["debug"]:
     with st.sidebar.expander("Debug"):
-        server = st.text_input(label="Server", value=SERVER)
-        port = st.text_input(label="Port", value=PORT)
+        server = st.text_input(label="Server", value=config["host"])
+        port = st.text_input(label="Port", value=config["port"])
 else:
-    server = SERVER
-    port = PORT
+    server = config["host"]
+    port = config["port"]
 
 st.sidebar.title("About")
 

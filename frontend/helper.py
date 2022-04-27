@@ -4,12 +4,22 @@ from config import (
     TOP_K,
 )
 from jina import Client, Document
+import yaml
+
+CONFIG_FILE = "../config.yml"
+
+with open(CONFIG_FILE) as file:
+    config = yaml.safe_load(file.read())
 
 
 def get_matches(
-    input, server=SERVER, port=PORT, limit=TOP_K, filters=None
+    input,
+    server=config["host"],
+    port=config["port"],
+    limit=config["return_docs"],
+    filters=None,
 ):
-    client = Client(host=server, protocol="http", port=port)
+    client = Client(host=server, port=port)
     response = client.search(
         Document(text=input),
         return_results=True,
@@ -21,7 +31,11 @@ def get_matches(
 
 
 def get_matches_from_image(
-    input, server=SERVER, port=PORT, limit=TOP_K, filters=None
+    input,
+    server=config["host"],
+    port=config["port"],
+    limit=config["return_docs"],
+    filters=None,
 ):
     data = input.read()
     query_doc = Document(blob=data)
@@ -33,20 +47,9 @@ def get_matches_from_image(
         query_doc,
         return_results=True,
         parameters={"limit": limit, "filter": filters},
-        show_progress=True,
     )
 
     return response[0].matches
-
-
-def print_stars(rating, maximum=5):
-    rating = int(rating)
-    positive = "★"
-    negative = "☆"
-
-    string = rating * positive + (maximum - rating) * negative
-
-    return string
 
 
 def resize_image(filename, resize_factor=2):
@@ -58,6 +61,7 @@ def resize_image(filename, resize_factor=2):
 
     return image
 
-def filename_to_title(filename: str) -> str:
-    title = filename.split("/")[-1]
-    title = title.split(".")[0]
+
+# def filename_to_title(filename: str) -> str:
+    # title = filename.split("/")[-1]
+    # title = title.split(".")[0]

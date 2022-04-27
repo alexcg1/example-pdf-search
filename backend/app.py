@@ -1,24 +1,75 @@
 import click
 from docarray import DocumentArray, Document
-from executors import PdfPreprocessor, ChunkSentencizer, DebugChunkPrinter, RecurseTags, ChunkMerger
+from executors import (
+    PdfPreprocessor,
+    ChunkSentencizer,
+    DebugChunkPrinter,
+    RecurseTags,
+    ChunkMerger,
+)
 from jina import Flow
-from config import PORT, DATA_DIR, NUM_DOCS
+import yaml
+
+CONFIG_FILE = "../config.yml"
+
+with open(CONFIG_FILE) as file:
+    config = yaml.safe_load(file.read())
 
 
+# Hopefully this is an all-in-one Flow, since indexing and querying follow different rules. This doesn't work fwiw
 
-def index(directory=DATA_DIR, num_docs=NUM_DOCS):
+# flow = (
+# Flow(port=PORT, protocol="http")
+# .add(uses=PdfPreprocessor, name="processor", uses_requests={"/index": "index"})
+# .add(
+# uses="jinahub://PDFSegmenter",
+# install_requirements=True,
+# name="segmenter",
+# uses_requests={"/index": "index"},
+# )
+# .add(
+# uses=ChunkSentencizer,
+# name="chunk_sentencizer",
+# uses_requests={"/index": "index"},
+# )
+# .add(
+# uses=RecurseTags, uses_requests={"/index": "index"}
+# )  # add doc.tags to chunk.tags
+# .add(uses=ChunkMerger, uses_requests={"/index": "index"})  # flatten chunks
+# .add(
+# uses="jinahub://CLIPEncoder",
+# install_requirements=True,
+# name="encoder",
+# uses_with={
+# "traversal_paths": "@c"
+# },  # on index we go on chunk-level not doc-level
+# uses_requests={"/index": "index"},
+# )
+# .add(
+# uses="jinahub://CLIPEncoder",
+# install_requirements=True,
+# name="encoder",
+# uses_requests={"/search": "search"},
+# )
+# .add(
+# uses="jinahub://SimpleIndexer/v0.15",
+# install_requirements=True,
+# name="indexer",
+# uses_with={"traversal_right": "@c"},
+# )
+# )
+
+
+def index(directory=config["data_dir"], num_docs=config["num_docs"]):
     docs = DocumentArray.from_files(f"{directory}/*.pdf", recursive=True, size=num_docs)
 
     flow = (
-        Flow(port=PORT, protocol="http")
+        Flow(port=config["port"], protocol="http")
         .add(uses=PdfPreprocessor, name="processor")
         .add(uses="jinahub://PDFSegmenter", install_requirements=True, name="segmenter")
-        # .add(uses=TextCleaner, name="cleaner")
-        .add(
-            uses=ChunkSentencizer, name="chunk_sentencizer"
-        )  # Sentencizes text chunks and saves to doc.chunks
-        .add(uses=RecurseTags) # add doc.tags to chunk.tags
-        .add(uses=ChunkMerger) # copy doc.chunks.chunks to doc.chunks
+        .add(uses=ChunkSentencizer, name="chunk_sentencizer")
+        .add(uses=RecurseTags)  # add doc.tags to chunk.tags
+        .add(uses=ChunkMerger)  # flatten chunks
         .add(
             uses="jinahub://CLIPEncoder",
             install_requirements=True,
@@ -35,11 +86,6 @@ def index(directory=DATA_DIR, num_docs=NUM_DOCS):
 
     with flow:
         indexed_docs = flow.index(docs, show_progress=True)
-
-    # for doc in indexed_docs:
-        # print(doc.tags)
-        # for chunk in doc.chunks:
-            # print(chunk.tags)
 
     return indexed_docs
 
@@ -59,8 +105,13 @@ def search_grpc():
             uses_with={"traversal_right": "@c"},
         )
     )
+    print("Type 'q' to quit!")
     while True:
-        string = input("What do you want to search for? > ")
+        string = input("What do you want to search for? ")
+        if string.lower() in ["q", "quit"]:
+            print("Goodbye!")
+            break
+
         search_doc = Document(text=string)
 
         with flow:
@@ -74,9 +125,10 @@ def search_grpc():
             print(doc.tags)
             print("-" * 10)
 
+
 def search():
     flow = (
-        Flow(protocol="http", port=PORT)
+        Flow(protocol="http", port=config["port"])
         .add(
             uses="jinahub://CLIPEncoder",
             install_requirements=True,
@@ -99,7 +151,7 @@ def search():
     "-t",
     type=click.Choice(["index", "search", "search_grpc"], case_sensitive=False),
 )
-@click.option("--num_docs", "-n", default=NUM_DOCS)
+@click.option("--num_docs", "-n", default=config["num_docs"])
 def main(task: str, num_docs):
     if task == "index":
         index(num_docs=num_docs)
