@@ -1,4 +1,0 @@
-jina==3.3.6
-pikepdf==5.1.2
-pretty-errors==1.2.25
-streamlit==1.8.1
