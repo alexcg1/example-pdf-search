@@ -2,6 +2,8 @@
 
 This search engine will index a folder of PDF files, break them down into chunks, and then let you search using text or image for relevant chunks. In the frontend you'll see the returned chunks with a link to their associated PDF file.
 
+Bear in mind this is a **work in progress**
+
 ## Run the example
 
 1. Create a virtual environment
@@ -20,8 +22,8 @@ This search engine will index a folder of PDF files, break them down into chunks
 
 ## Configure
 
-- Backend: Settings are in `backend/config.py`
-- Frontend: Settings are in `frontend/.streamlit/foo.toml` and `frontend/config.py`
+- Settings are in `config.yml`
+- Additional frontend settings are in `frontend/.streamlit/config.toml`
 
 ## Deploy
 
@@ -31,4 +33,11 @@ This search engine will index a folder of PDF files, break them down into chunks
 
 If you're planning to use "Print to PDF" from your web browser for testing, I recommend using Chrome over Firefox. Firefox converts characters strangely (for example `fi` becomes `ﬁ`) which *could* affect search results depending on what the encoder recognizes as a meaningful unit.
 
+## TODO
 
+Feel free to make a PR to help out with these!
+
+- [ ] Test image display in frontend
+- [ ] Embed original image as `datauri` when indexing images
+- [ ] Single restful endpoint for both indexing and search
+- [ ] Working `docker-compose.yml`
