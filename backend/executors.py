@@ -7,6 +7,12 @@ import re
 from dateutil.tz import tzutc, tzoffset
 import datetime
 import numpy as np
+import yaml
+
+CONFIG_FILE = "../config.yml"
+
+with open(CONFIG_FILE) as file:
+    config = yaml.safe_load(file.read())
 
 pdf_date_pattern = re.compile(
     "".join(
@@ -142,14 +148,19 @@ class ChunkSentencizer(Executor):
 
 class ChunkMerger(Executor):
     """
-    Merges all doc.chunks.chunks to doc.chunks
+    - Remove original chunk if doc.text exists (bc we only want the sentencized versions)
+    - Merges all doc.chunks.chunks to doc.chunks
     """
 
     @requests(on="/index")
     def merge_chunks(self, docs, **kwargs):
         for doc in docs:  # level 0 document
+            # Remove original text chunks from doc.chunks (non-recursive)
+            # Because original text was from huge lumps, not sentencized
+            for chunk in doc.chunks:
+                if doc.text:
+                    docs.pop(chunk.id)
             doc.chunks = doc.chunks[...]
-            # doc.chunks.extend(doc.chunks["@c, cc, ccc"])
 
 
 class ImageNormalizer(Executor):
@@ -161,9 +172,14 @@ class ImageNormalizer(Executor):
                     chunk.convert_blob_to_image_tensor()
 
                 if hasattr(chunk, "tensor"):
-                    print("Tensor found")
                     if chunk.tensor is not None:
-                        # chunk.tags["original_tensor"] = chunk.tensor
+                        image_chunk_dir = f"{config['data_dir']}/image_chunks"
+                        if not os.path.isdir(image_chunk_dir):
+                            os.makedirs(image_chunk_dir)
+                        chunk.save_image_tensor_to_file(
+                            f"{image_chunk_dir}/{chunk.id}.png"
+                        )
+                        chunk.tags["image_uri"] = f"{image_chunk_dir}/{chunk.id}.png"
                         chunk.tensor = chunk.tensor.astype(np.uint8)
                         chunk.set_image_tensor_shape((64, 64))
                         chunk.set_image_tensor_normalization()
@@ -209,10 +225,12 @@ class DebugChunkPrinter(Executor):
                 # # print(doc.content)
                 print("-" * 10)
 
+
 class EmptyDeleter(Executor):
     """
-    Delete docs with empty embeddings
+    Delete docs with empty embeddings. These shouldn't exist but sometimes they fall through the gaps
     """
+
     @requests
     def delete_empty(self, docs, **kwargs):
         for doc in docs:
