@@ -4,19 +4,19 @@ services:
   frontend:
     build: frontend
     environment:
-      - SERVER=searcher
+      - SERVER=backend
       - DEBUG=False
     ports:
       - 8512:8512
     depends_on:
-      - searcher
+      - backend
     volumes:
       - ./frontend:/workspace
       - ./data:/data
     restart: always
 
-  searcher:
-    build: searcher
+  backend:
+    build: backend
     environment:
       - IN_DOCKER=True
     ports:
