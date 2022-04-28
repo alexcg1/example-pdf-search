@@ -1,11 +1,11 @@
-FROM jinaai/jina:3.0.0-py39-standard
+FROM jinaai/jina:3.3.10-py39-standard
 
 COPY . /workspace
 WORKDIR /workspace
 
-RUN pip install streamlit==1.5.0
+RUN pip install streamlit==1.8.1
 
-EXPOSE 8509
+EXPOSE 8512
 
 ENTRYPOINT ["streamlit", "run"]
 CMD ["frontend.py"]
