@@ -1,0 +1,2 @@
+jina==3.3.6
+streamlit==1.8.1
