@@ -4,12 +4,10 @@ from helper import (
     get_matches,
     resize_image,
     get_matches_from_image,
+    load_config
 )
 
-CONFIG_FILE = "../config.yml"
-
-with open(CONFIG_FILE) as file:
-    config = yaml.safe_load(file.read())
+config = load_config()
 
 limit = config["return_docs"]
 
@@ -23,13 +21,14 @@ st.sidebar.title("Options")
 input_media = st.sidebar.radio(label="Search with...", options=["text", "image"])
 
 
-if config["debug"]:
-    with st.sidebar.expander("Debug"):
-        server = st.text_input(label="Server", value=config["host"])
-        port = st.text_input(label="Port", value=config["port"])
-else:
-    server = config["host"]
-    port = config["port"]
+if "debug" in config.keys():
+    if config["debug"]:
+        with st.sidebar.expander("Debug"):
+            host = st.text_input(label="Host", value=config["host"])
+            port = st.text_input(label="Port", value=config["port"])
+    else:
+        host = config["host"]
+        port = config["port"]
 
 st.sidebar.title("About")
 
@@ -39,7 +38,7 @@ st.sidebar.markdown(
 )
 
 st.sidebar.markdown(
-    "[Repo link](https://github.com/alexcg1/jina-multimodal-fashion-search)"
+    "[Repo link](https://github.com/alexcg1/example-pdf-search)"
 )
 
 # Main area
@@ -50,9 +49,9 @@ if input_media == "text":
     text_search_button = st.button("Search")
     if text_search_button:
         matches = get_matches(
-            input=text_query,
-            limit=limit,
-            server=server,
+            string=text_query,
+            limit=config["return_docs"],
+            host=host,
             port=port,
         )
         print(matches)
@@ -62,9 +61,9 @@ elif input_media == "image":
     image_search_button = st.button("Search")
     if image_search_button:
         matches = get_matches_from_image(
-            input=image_query,
+            input_data=image_query,
             limit=limit,
-            server=server,
+            host=host,
             port=port,
         )
 
