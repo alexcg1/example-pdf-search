@@ -1,2 +1,3 @@
 jina==3.3.6
 pikepdf==5.1.2
+python-dateutil==2.8.2
