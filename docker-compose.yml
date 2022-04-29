@@ -1,26 +1,42 @@
 version: "3.7"
 
+x-common-variables: &common-variables
+  DATA_DIR: "data"
+  METADATA_DIR: "data/metadata"
+  IN_DOCKER: true
+  RETURN_DOCS: 10
+  PROTOCOL: http
+  DEBUG: true
+  PORT: 5689
+
 services:
   frontend:
     build: frontend
     environment:
-      - SERVER=backend
-      - DEBUG=False
+      <<: *common-variables
+      SERVER: backend
+      HOST: backend
     ports:
       - 8512:8512
-    depends_on:
-      - backend
+    #depends_on:
+      #- backend
     volumes:
       - ./frontend:/workspace
       - ./data:/data
     restart: always
+    #networks:
+      #- mynetwork
 
   backend:
     build: backend
-    environment:
-      - IN_DOCKER=True
+    environment: *common-variables
     ports:
       - 5689:5689
     volumes:
       - ./data:/data
     restart: always
+    #networks:
+      #- mynetwork
+
+#networks:
+  #mynetwork:
