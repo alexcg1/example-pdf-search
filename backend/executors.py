@@ -9,7 +9,7 @@ import datetime
 import numpy as np
 import yaml
 
-CONFIG_FILE = "../config.yml"
+CONFIG_FILE = "config.yml"
 
 with open(CONFIG_FILE) as file:
     config = yaml.safe_load(file.read())
