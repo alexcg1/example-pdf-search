@@ -10,12 +10,14 @@ from executors import (
     EmptyDeleter
 )
 from jina import Flow
-import yaml
+from helper import load_config
 
-CONFIG_FILE = "../config.yml"
+# CONFIG_FILE = "config.yml"
 
-with open(CONFIG_FILE) as file:
-    config = yaml.safe_load(file.read())
+# with open(CONFIG_FILE) as file:
+    # config = yaml.safe_load(file.read())
+
+config = load_config()
 
 
 # Hopefully this is an all-in-one Flow, since indexing and querying follow different rules. This doesn't work fwiw
