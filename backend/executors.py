@@ -1,4 +1,3 @@
-from config import METADATA_DIR
 from jina import Executor, requests
 import pikepdf
 import subprocess
@@ -85,7 +84,7 @@ class PdfPreprocessor(Executor):
 
     @requests(on="/index")
     def preprocess_pdf(self, docs, **kwargs):
-        covers_dir = f"{METADATA_DIR}/covers"
+        covers_dir = f"{config['metadata_dir']}/covers"
         if not os.path.isdir(covers_dir):
             os.makedirs(covers_dir)
 
