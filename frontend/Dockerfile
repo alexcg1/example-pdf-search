@@ -1,9 +1,10 @@
-FROM jinaai/jina:3.3.10-py39-standard
+FROM python:3.9-bullseye
 
+# setup the workspace
 COPY . /workspace
 WORKDIR /workspace
 
-RUN pip install streamlit==1.8.1
+RUN pip install -r requirements.txt
 
 EXPOSE 8512
 
