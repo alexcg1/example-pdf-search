@@ -1,42 +1,30 @@
-# from config import (
-# SERVER,
-# PORT,
-# TOP_K,
-# )
+import os
 from jina import Client, Document
 import yaml
-import os
-from pprint import pprint
-
-# CONFIG_FILE = "../config.yml"
-
-# with open(CONFIG_FILE) as file:
-# config = yaml.safe_load(file.read())
 
 
 def load_config():
     """
     Loads config from docker-compose variables or file in project root folder (i.e. folder above backend/frontend)
     """
-    try:
-        config = {
-            "data_dir": os.getenv("DATA_DIR", "data"),
-            "metadata_dir": os.getenv("METADATA_DIR", "data/metadata"),
-            "port": int(os.getenv("PORT", 5689)),
-            "num_docs": int(os.getenv("NUM_DOCS", 1000)),
-            "return_docs": int(os.getenv("RETURN_DOCS", 10)),
-            "host": os.getenv("HOST", "0.0.0.0"),
-            "server": os.getenv("SERVER", "0.0.0.0"),
-            "protocol": os.getenv("PROTOCOL", "http"),
-            "debug": os.getenv("DEBUG", True),
-        }
-    except:
-        CONFIG_FILE = "config.yml"
-        with open(CONFIG_FILE) as file:
-            config = yaml.safe_load(file.read())
+    CONFIG_FILE = "config.yml"
+    with open(CONFIG_FILE) as file:
+        default_config = yaml.safe_load(file.read())
 
-    print("Frontend config")
-    pprint(config)
+    config = {
+        "data_dir": os.getenv("DATA_DIR", default_config["data_dir"]),
+        "metadata_dir": os.getenv("METADATA_DIR", default_config["metadata_dir"]),
+        "num_docs": int(os.getenv("NUM_DOCS", default_config["num_docs"])),
+        "return_docs": int(os.getenv("RETURN_DOCS", default_config["return_docs"])),
+        "host": os.getenv("HOST", default_config["host"]),
+        "debug": os.getenv("DEBUG", default_config["debug"]),
+        "port": int(os.getenv("PORT", default_config["port"])),
+    }
+
+    # protocol, server, port = config["host"].split(":")
+    # port = int(port)
+    # config["host"] = f"{protocol}:{server}:{port}"
+
     return config
 
 
@@ -47,11 +35,11 @@ def get_matches(
     string,
     host=config["host"],
     port=config["port"],
-    protocol=config["protocol"],
+    # protocol="http"
     limit=config["return_docs"],
     filters=None,
 ):
-    client = Client(host=host, port=port, protocol=protocol)
+    client = Client(host=host, port=port)
     response = client.search(
         Document(text=string),
         return_results=True,
@@ -62,29 +50,11 @@ def get_matches(
     return response[0].matches
 
 
-# def get_matches(
-    # input,
-    # server=config["server"],
-    # port=config["port"],
-    # limit=config["return_docs"],
-    # filters=None,
-# ):
-    # client = Client(host=server, protocol="http", port=port)
-    # response = client.search(
-        # Document(text=input),
-        # return_results=True,
-        # # parameters={"limit": limit, "filter": filters},
-        # show_progress=True,
-    # )
-
-    # return response[0].matches
-
-
 def get_matches_from_image(
     input_data,
     host=config["host"],
     port=config["port"],
-    protocol=config["protocol"],
+    # protocol=config["protocol"],
     limit=config["return_docs"],
     filters=None,
 ):
@@ -93,7 +63,7 @@ def get_matches_from_image(
     query_doc.convert_blob_to_image_tensor()
     query_doc.set_image_tensor_shape((64, 64))
 
-    client = Client(host=host, protocol=protocol, port=port)
+    client = Client(host=host, port=port)
     response = client.search(
         query_doc,
         return_results=True,

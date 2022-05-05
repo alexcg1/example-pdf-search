@@ -2,7 +2,7 @@ import yaml
 import streamlit as st
 from helper import (
     get_matches,
-    resize_image,
+    # resize_image,
     get_matches_from_image,
     load_config
 )
@@ -25,7 +25,7 @@ if "debug" in config.keys():
     if config["debug"]:
         with st.sidebar.expander("Debug"):
             host = st.text_input(label="Host", value=config["host"])
-            port = st.text_input(label="Port", value=config["port"])
+            port = st.text_input(label="Host", value=config["port"])
     else:
         host = config["host"]
         port = config["port"]
@@ -76,12 +76,13 @@ if "matches" in locals():
             cover_uri = "./icon.png"
 
         icon_cell.image(match.tags["parent"]["cover"])
+        icon_cell.markdown(f"**{match.tags['parent']['title']}**")
         with open(match.tags["parent"]["uri"], "rb") as file:
             st.download_button("Download", file, key=match.id)
-        if hasattr(match, "text"):
+        if match.text:
             info_cell.markdown(match.text)
-        elif hasattr(match, "blob"):
-            info_cell.markdown("blob")
+        elif hasattr(match, "tensor"):
+            info_cell.image(match.tags["image_datauri"])
         else:
             info_cell.markdown("don't know if text or image")
         st.markdown("---")
