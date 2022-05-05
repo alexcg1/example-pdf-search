@@ -1,4 +1,4 @@
-from config import METADATA_DIR
+# from config import METADATA_DIR
 from jina import Executor, requests
 import pikepdf
 import subprocess
@@ -70,7 +70,7 @@ def transform_date(date_str):
 
 
 def uri_to_title(uri):
-    title = uri.split(".")[-2].split("/")[-1]
+    title = uri.split(".")[-2].split("/")[-1].capitalize()
 
     return title
 
@@ -85,7 +85,7 @@ class PdfPreprocessor(Executor):
 
     @requests(on="/index")
     def preprocess_pdf(self, docs, **kwargs):
-        covers_dir = f"{METADATA_DIR}/covers"
+        covers_dir = f"{config['metadata_dir']}/covers"
         if not os.path.isdir(covers_dir):
             os.makedirs(covers_dir)
 
@@ -125,7 +125,7 @@ class RecurseTags(Executor):
     @requests(on="/index")
     def copy_doc_tags_to_chunk_tags(self, docs, **kwargs):
         for doc in docs:
-            for chunk in doc.chunks["@c, cc, ccc"]:
+            for chunk in doc.chunks[...]:
                 if not "parent" in chunk.tags:
                     chunk.tags["parent"] = doc.tags
                     chunk.tags["parent"]["uri"] = doc.uri
@@ -173,13 +173,20 @@ class ImageNormalizer(Executor):
 
                 if hasattr(chunk, "tensor"):
                     if chunk.tensor is not None:
-                        image_chunk_dir = f"{config['data_dir']}/image_chunks"
-                        if not os.path.isdir(image_chunk_dir):
-                            os.makedirs(image_chunk_dir)
-                        chunk.save_image_tensor_to_file(
-                            f"{image_chunk_dir}/{chunk.id}.png"
-                        )
-                        chunk.tags["image_uri"] = f"{image_chunk_dir}/{chunk.id}.png"
+                        # save image to disk for later retrieval
+                        # image_chunk_dir = f"{config['data_dir']}/image_chunks"
+                        # if not os.path.isdir(image_chunk_dir):
+                            # os.makedirs(image_chunk_dir)
+                        # chunk.save_image_tensor_to_file(
+                            # f"{image_chunk_dir}/{chunk.id}.png"
+                        # )
+                        # chunk.tags["image_uri"] = f"{image_chunk_dir}/{chunk.id}.png"
+
+                        # save image to datauri to keep fs clean
+                        chunk.convert_image_tensor_to_uri()
+                        chunk.tags["image_datauri"] = chunk.uri
+                        # print(chunk.uri)
+
                         chunk.tensor = chunk.tensor.astype(np.uint8)
                         chunk.set_image_tensor_shape((64, 64))
                         chunk.set_image_tensor_normalization()

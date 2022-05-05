@@ -72,9 +72,9 @@ def index(directory=config["data_dir"], num_docs=config["num_docs"]):
         .add(uses=PdfPreprocessor, name="processor")
         .add(uses="jinahub://PDFSegmenter", install_requirements=True, name="segmenter")
         .add(uses=ChunkSentencizer, name="chunk_sentencizer")
-        .add(uses=RecurseTags, name="recurse_tags")  # add doc.tags to chunk.tags
         .add(uses=ChunkMerger, name="chunk_merger")  # flatten chunks
         .add(uses=ImageNormalizer, name="image_normalizer")
+        .add(uses=RecurseTags, name="recurse_tags")  # add doc.tags to chunk.tags
         .add(
             uses="jinahub://CLIPEncoder",
             install_requirements=True,
@@ -96,8 +96,13 @@ def index(directory=config["data_dir"], num_docs=config["num_docs"]):
     with flow:
         indexed_docs = flow.index(docs, show_progress=True)
 
-    # indexed_docs.summary()
-    indexed_docs[0].chunks.summary()
+    # indexed_docs.summary(
+    # indexed_docs[0].chunks.summary()
+    # print(indexed_docs)
+
+    chunks = indexed_docs[0].chunks
+
+    print(chunks[0].content)
 
     return indexed_docs
 
