@@ -14,8 +14,8 @@ services:
     build: frontend
     environment:
       <<: *common-variables
-      SERVER: backend
-      HOST: backend
+      SERVER: "http://backend"
+      HOST: "http://backend"
     ports:
       - 8512:8512
     #depends_on:
