@@ -133,14 +133,15 @@ class RecurseTags(Executor):
 
 class ChunkSentencizer(Executor):
     """
-    Cleans up and sentencizes a Document's chunks
+    Sentencizes a Document's chunks
     """
 
     @requests(on="/index")
     def sentencize_text_chunks(self, docs, **kwargs):
+        sentencizer_name = "jinahub://SpacySentencizer/v0.4"
         for doc in docs:
             sentencizer = Executor.from_hub(
-                "jinahub://SpacySentencizer/v0.4",
+                sentencizer_name,
                 install_requirements=True,
             )
             sentencizer.segment(doc.chunks, parameters={})
@@ -148,19 +149,23 @@ class ChunkSentencizer(Executor):
 
 class ChunkMerger(Executor):
     """
-    - Remove original chunk if doc.text exists (bc we only want the sentencized versions)
+    - Remove really long chunks (i.e. not-sentences)
     - Merges all doc.chunks.chunks to doc.chunks
     """
+
+    def __init__(self, max_text_length=1000, **kwargs):
+        super().__init__(**kwargs)
+        self.max_text_length = max_text_length
 
     @requests(on="/index")
     def merge_chunks(self, docs, **kwargs):
         for doc in docs:  # level 0 document
             # Remove original text chunks from doc.chunks (non-recursive)
             # Because original text was from huge lumps, not sentencized
-            for chunk in doc.chunks:
-                if doc.text:
-                    docs.pop(chunk.id)
             doc.chunks = doc.chunks[...]
+            for chunk in doc.chunks:
+                if len(chunk.text) > self.max_text_length:  # remove huge chunks
+                    doc.chunks.pop(chunk.id)
 
 
 class ImageNormalizer(Executor):
@@ -176,9 +181,9 @@ class ImageNormalizer(Executor):
                         # save image to disk for later retrieval
                         # image_chunk_dir = f"{config['data_dir']}/image_chunks"
                         # if not os.path.isdir(image_chunk_dir):
-                            # os.makedirs(image_chunk_dir)
+                        # os.makedirs(image_chunk_dir)
                         # chunk.save_image_tensor_to_file(
-                            # f"{image_chunk_dir}/{chunk.id}.png"
+                        # f"{image_chunk_dir}/{chunk.id}.png"
                         # )
                         # chunk.tags["image_uri"] = f"{image_chunk_dir}/{chunk.id}.png"
 
