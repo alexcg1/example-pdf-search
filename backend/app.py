@@ -7,7 +7,7 @@ from executors import (
     RecurseTags,
     ChunkMerger,
     ImageNormalizer,
-    EmptyDeleter
+    EmptyDeleter,
 )
 from jina import Flow
 from helper import load_config
@@ -15,7 +15,7 @@ from helper import load_config
 # CONFIG_FILE = "config.yml"
 
 # with open(CONFIG_FILE) as file:
-    # config = yaml.safe_load(file.read())
+# config = yaml.safe_load(file.read())
 
 config = load_config()
 
@@ -70,39 +70,35 @@ def index(directory=config["data_dir"], num_docs=config["num_docs"]):
     flow = (
         Flow(port=config["port"], protocol="http")
         .add(uses=PdfPreprocessor, name="processor")
-        .add(uses="jinahub://PDFSegmenter", install_requirements=True, name="segmenter")
+        .add(uses="jinahub://PDFSegmenter", install_requirements=True)
         .add(uses=ChunkSentencizer, name="chunk_sentencizer")
         .add(uses=ChunkMerger, name="chunk_merger")  # flatten chunks
-        .add(uses=ImageNormalizer, name="image_normalizer")
+        # .add(uses=ImageNormalizer, name="image_normalizer")
         .add(uses=RecurseTags, name="recurse_tags")  # add doc.tags to chunk.tags
         .add(
-            uses="jinahub://CLIPEncoder",
+            uses="jinahub://SpacyTextEncoder",
+            # uses="jinahub://CLIPEncoder",
             install_requirements=True,
             name="encoder",
-            uses_with={"traversal_paths": "@c"},
+            uses_with={"model_name": "en_core_web_md", "traversal_paths": "@c"},
         )
-        .add(
-            uses=EmptyDeleter,
-            name="empty_deleter"
-        )
+        .add(uses=EmptyDeleter, name="empty_deleter")
         .add(
             uses="jinahub://SimpleIndexer/v0.15",
             install_requirements=True,
             name="indexer",
-            uses_with={"traversal_right": "@c"},
+            # uses_with={"traversal_right": "@c"},
         )
     )
 
     with flow:
-        indexed_docs = flow.index(docs, show_progress=True)
+        indexed_docs = flow.index(docs, show_progress=True, size=1)
 
-    # indexed_docs.summary(
-    # indexed_docs[0].chunks.summary()
-    # print(indexed_docs)
+    indexed_docs.summary()
+    indexed_docs[0].chunks.summary()
 
-    chunks = indexed_docs[0].chunks
-
-    print(chunks[0].content)
+    # for doc in indexed_docs[0].chunks:
+        # print(len(doc.text))
 
     return indexed_docs
 
@@ -111,7 +107,9 @@ def search_grpc():
     flow = (
         Flow()
         .add(
-            uses="jinahub://CLIPEncoder",
+            # uses="jinahub://CLIPEncoder",
+            uses="jinahub://SpacyTextEncoder",
+            uses_with={"model_name": "en_core_web_md"},
             install_requirements=True,
             name="encoder",
         )
