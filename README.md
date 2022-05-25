@@ -1,6 +1,6 @@
 # PDF Search Engine with Jina
 
-This search engine will index a folder of PDF files, break them down into chunks, and then let you search using text or image for relevant chunks. In the frontend you'll see the returned chunks with a link to their associated PDF file.
+This search engine will index a folder of PDF files, break them down into chunks, and then let you search using text for relevant chunks. In the frontend you'll see the returned chunks with a link to their associated PDF file.
 
 Bear in mind this is a **work in progress**
 
