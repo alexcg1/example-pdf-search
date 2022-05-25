@@ -1,9 +1,12 @@
 data_dir: "../data"
-metadata_dir: "../data/metadata" # stores PDF covers
+metadata_dir: "../data/metadata"  # stores PDF covers
 host: "http://0.0.0.0"
 port: 5689
-num_docs: 1000 # maximum number of Documents to index
+num_docs: 1000  # maximum number of Documents to index
 return_docs: 10
-debug: True # allow setting server/port from frontend directly
+debug: true  # allow setting server/port from frontend directly
+
+encoder: SpacyTextEncoder
+spacy_model: en_core_web_md
 
 # see frontend/.streamlit/config.toml for additional frontend config

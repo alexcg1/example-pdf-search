@@ -13,12 +13,7 @@ from executors import (
 from jina import Flow
 from helper import load_config
 
-# CONFIG_FILE = "config.yml"
-
-# with open(CONFIG_FILE) as file:
-# config = yaml.safe_load(file.read())
-
-config = load_config()
+config = load_config("config.yml")
 
 
 # Hopefully this is an all-in-one Flow, since indexing and querying follow different rules. This doesn't work fwiw
@@ -74,14 +69,12 @@ def index(directory=config["data_dir"], num_docs=config["num_docs"]):
         .add(uses="jinahub://PDFSegmenter", install_requirements=True)
         .add(uses=ChunkSentencizer, name="chunk_sentencizer")
         .add(uses=ChunkMerger, name="chunk_merger")  # flatten chunks
-        # .add(uses=ImageNormalizer, name="image_normalizer")
         .add(uses=RecurseTags, name="recurse_tags")  # add doc.tags to chunk.tags
         .add(
-            uses="jinahub://SpacyTextEncoder",
-            # uses="jinahub://CLIPEncoder",
+            uses=f"jinahub://{config['encoder']}",
             install_requirements=True,
             name="encoder",
-            uses_with={"model_name": "en_core_web_md", "traversal_paths": "@c"},
+            uses_with={"model_name": config["spacy_model"], "traversal_paths": "@c"},
         )
         .add(uses=EmptyDeleter, name="empty_deleter")
         .add(
@@ -110,9 +103,8 @@ def search_grpc():
     flow = (
         Flow()
         .add(
-            # uses="jinahub://CLIPEncoder",
-            uses="jinahub://SpacyTextEncoder",
-            uses_with={"model_name": "en_core_web_md"},
+            uses=f"jinahub://{config['encoder']}",
+            uses_with={"model_name": config['spacy_model']},
             install_requirements=True,
             name="encoder",
         )
@@ -123,6 +115,7 @@ def search_grpc():
             uses_with={"traversal_right": "@c"},
         )
     )
+
     print("Type 'q' to quit!")
     while True:
         string = input("What do you want to search for? ")
