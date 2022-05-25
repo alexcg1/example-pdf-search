@@ -8,6 +8,7 @@ from executors import (
     ChunkMerger,
     ImageNormalizer,
     EmptyDeleter,
+    ChunkDeleter,
 )
 from jina import Flow
 from helper import load_config
@@ -84,6 +85,11 @@ def index(directory=config["data_dir"], num_docs=config["num_docs"]):
         )
         .add(uses=EmptyDeleter, name="empty_deleter")
         .add(
+            uses=ChunkDeleter,
+            name="chunk_deleter",
+            uses_with={"delete_types": ["tensor"]},
+        )
+        .add(
             uses="jinahub://SimpleIndexer/v0.15",
             install_requirements=True,
             name="indexer",
@@ -96,9 +102,6 @@ def index(directory=config["data_dir"], num_docs=config["num_docs"]):
 
     indexed_docs.summary()
     indexed_docs[0].chunks.summary()
-
-    # for doc in indexed_docs[0].chunks:
-        # print(len(doc.text))
 
     return indexed_docs
 

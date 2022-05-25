@@ -168,6 +168,23 @@ class ChunkMerger(Executor):
                     doc.chunks.pop(chunk.id)
 
 
+class ChunkDeleter(Executor):
+    def __init__(self, delete_types=[], **kwargs):
+        super().__init__(**kwargs)
+        self.delete_types = delete_types
+
+    @requests(on="/index")
+    def remove_non_text(self, docs, **kwargs):
+        for doc in docs:
+            for chunk in doc.chunks[...]:
+                if "text" in self.delete_types:
+                    if chunk.text:
+                        doc.chunks.pop(chunk.id)
+                if "tensor" in self.delete_types:
+                    if chunk.tensor is not None:
+                        doc.chunks.pop(chunk.id)
+
+
 class ImageNormalizer(Executor):
     @requests(on="/index")
     def normalize_chunks(self, docs, **kwargs):
